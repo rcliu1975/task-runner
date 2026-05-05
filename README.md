@@ -24,6 +24,17 @@ This installs a single command:
 ctask
 ```
 
+The installer also creates `~/.config/ctask/env.sh`. If the old
+`~/.config/codex-interactive-mode/env.sh` exists, its workdir, socket dir, and
+session prefix are migrated into the new config. Command fallback is not
+migrated; unmatched task names intentionally open a plain tmux shell.
+
+To overwrite an existing config:
+
+```bash
+sudo CTASK_OVERWRITE_CONFIG=1 ./scripts/install.sh /usr/local/bin
+```
+
 ## Usage
 
 ```bash
