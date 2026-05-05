@@ -1,51 +1,124 @@
-# Task Runner
+# ctask
 
-A versatile, tmux-based task execution interface that routes commands based on task names.
+A generic tmux-based interactive task launcher.
 
-## Overview
+`ctask` directly replaces the old `codex-interactive-mode` workflow: one task name maps to one tmux socket and one tmux session. If SSH disconnects or a terminal closes, running the same task name attaches you back to the same working context.
 
-`task-runner` simplifies project management by automatically selecting the appropriate execution mode based on the task name you provide. It leverages `tmux` to manage persistent background task sessions.
+## What It Does
 
-## Task Routing Logic
-
-When you start a task, `task-runner` automatically routes it to the correct command based on the following naming conventions:
-
-| Task Name Pattern | Command Executed |
-| :--- | :--- |
-| `danger`, `danger-*`, `codex-danger`, `codex-danger-*` | `codex --sandbox danger-full-access --ask-for-approval never` |
-| `codex`, `codex-*` | `codex --full-auto` |
-| `gemini-yolo`, `gemini-yolo-*` | `gemini --yolo` |
-| Other | Default (User defined via `CODEX_CMD`) |
+- Starts or reattaches a persistent tmux session for each task name.
+- Uses a configurable work directory, socket directory, and session prefix.
+- Supports route rules so task names can launch different tools.
+- Includes the original Codex/Gemini task modes by default.
+- Keeps migration compatibility with existing `task-runner` and `codex-interactive-mode` env files.
 
 ## Installation
-
-To install `codex-task` to your system path:
 
 ```bash
 sudo ./scripts/install.sh /usr/local/bin
 ```
 
-## Usage
+This installs a single command:
 
-### Prerequisites
-- `tmux` installed on your system.
-
-### Starting a Task
 ```bash
-codex-task <task-name>
+ctask
 ```
 
-### Listing Active Tasks
+## Usage
+
 ```bash
-codex-task --list
+ctask <task-name>
+ctask --list
+ctask --help
+```
+
+Task names must use lowercase letters and `-`, for example:
+
+```bash
+ctask review
+ctask long-job
+ctask danger-maintenance
+```
+
+Built-in modes:
+
+| Task Name Pattern | Command |
+| :--- | :--- |
+| `codex`, `codex-*` | `codex --full-auto` |
+| `danger`, `danger-*`, `codex-danger`, `codex-danger-*` | `codex --sandbox danger-full-access --ask-for-approval never` |
+| `gemini`, `gemini-*` | `gemini` |
+| `gemini-yolo`, `gemini-yolo-*` | `gemini --yolo` |
+
+If no user route or built-in mode matches, `ctask` starts a plain tmux shell.
+
+## Configuration
+
+Create `~/.config/ctask/env.sh`:
+
+```bash
+export CTASK_WORKDIR="$HOME/WorkSpace"
+export CTASK_SOCKET_DIR="/tmp/ctask-tmux"
+export CTASK_SESSION_PREFIX="ctask"
+```
+
+You can point to another env file:
+
+```bash
+CTASK_CONFIG=/path/to/env.sh ctask review
+```
+
+For migration, if `~/.config/ctask/env.sh` does not exist, `ctask` will also look for:
+
+```text
+~/.config/task-runner/env.sh
+~/.config/codex-interactive-mode/env.sh
+```
+
+These older variables still work:
+
+```bash
+TASK_RUNNER_WORKDIR
+TASK_RUNNER_SOCKET_DIR
+TASK_RUNNER_SESSION_PREFIX
+CODEX_WORKDIR
+CODEX_SOCKET_DIR
+CODEX_SESSION_PREFIX
+```
+
+## Routes
+
+Routes keep `ctask` generic while letting task names launch different tools. Create `~/.config/ctask/routes.conf`:
+
+```conf
+build*=npm run build
+test*=npm test
+deploy*=./scripts/deploy.sh
+```
+
+Each line is:
+
+```conf
+<task-name-glob>=<command>
+```
+
+The first matching user route wins. If no user route matches, built-in Codex/Gemini routes are checked. If no built-in route matches, the task opens an interactive shell.
+
+Disable built-in routes when you want every task name to come only from your route file or a plain shell:
+
+```bash
+export CTASK_ENABLE_BUILTIN_ROUTES=0
 ```
 
 ## Environment Variables
 
-- `CODEX_WORKDIR`: Working directory for the tmux session (default: `$HOME/WorkSpace`).
-- `CODEX_SOCKET_DIR`: Directory that stores per-task tmux sockets (default: `/tmp/codex-tmux`).
-- `CODEX_SESSION_PREFIX`: Prefix for tmux session names (default: `codex`).
-- `CODEX_CMD`: Fallback command started inside tmux when creating a generic task.
+| Variable | Default |
+| :--- | :--- |
+| `CTASK_CONFIG` | `~/.config/ctask/env.sh`, then migration configs |
+| `CTASK_WORKDIR` | `$HOME/WorkSpace` |
+| `CTASK_SOCKET_DIR` | `/tmp/ctask-tmux` |
+| `CTASK_SESSION_PREFIX` | `ctask` |
+| `CTASK_ROUTES` | `~/.config/ctask/routes.conf` |
+| `CTASK_ENABLE_BUILTIN_ROUTES` | `1` |
 
 ## License
 

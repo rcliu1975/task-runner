@@ -2,21 +2,17 @@
 
 set -euo pipefail
 
-# Installation script for task-runner
-# Installs codex-task.sh to /usr/local/bin or a user-defined directory
-
 INSTALL_DIR="${1:-/usr/local/bin}"
-SCRIPT_NAME="codex-task"
+SCRIPT_NAME="${2:-ctask}"
 
-echo "Installing task-runner to $INSTALL_DIR..."
+echo "Installing ctask to $INSTALL_DIR..."
 
-if [ ! -d "$INSTALL_DIR" ]; then
+if [[ ! -d "$INSTALL_DIR" ]]; then
   echo "Error: Directory $INSTALL_DIR does not exist."
   exit 1
 fi
 
-cp scripts/codex-task.sh "$INSTALL_DIR/$SCRIPT_NAME"
-chmod +x "$INSTALL_DIR/$SCRIPT_NAME"
+install -m 0755 scripts/ctask.sh "$INSTALL_DIR/$SCRIPT_NAME"
 
 echo "Successfully installed to $INSTALL_DIR/$SCRIPT_NAME"
-echo "You can now run 'codex-task <task-name>' from anywhere."
+echo "You can now run '$SCRIPT_NAME <task-name>' from anywhere."
