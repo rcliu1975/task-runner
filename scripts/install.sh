@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-INSTALL_DIR="${1:-/usr/local/bin}"
 SCRIPT_NAME="${2:-ctask}"
 TARGET_USER="${SUDO_USER:-$(id -un)}"
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+INSTALL_DIR="${1:-$TARGET_HOME/.local/bin}"
 CTASK_CONFIG_DIR="${CTASK_CONFIG_DIR:-$TARGET_HOME/.config/ctask}"
 CTASK_ENV_FILE="${CTASK_ENV_FILE:-$CTASK_CONFIG_DIR/env.sh}"
 LEGACY_ENV_FILE="${LEGACY_ENV_FILE:-$TARGET_HOME/.config/codex-interactive-mode/env.sh}"
@@ -67,12 +67,13 @@ EOF
 
 echo "Installing ctask to $INSTALL_DIR..."
 
-if [[ ! -d "$INSTALL_DIR" ]]; then
-  echo "Error: Directory $INSTALL_DIR does not exist."
-  exit 1
-fi
+as_target_user mkdir -p "$INSTALL_DIR"
 
-install -m 0755 scripts/ctask.sh "$INSTALL_DIR/$SCRIPT_NAME"
+if [[ "$(id -un)" == "$TARGET_USER" ]]; then
+  install -m 0755 scripts/ctask.sh "$INSTALL_DIR/$SCRIPT_NAME"
+else
+  install -m 0755 -o "$TARGET_USER" -g "$TARGET_USER" scripts/ctask.sh "$INSTALL_DIR/$SCRIPT_NAME"
+fi
 
 legacy_workdir="$(load_legacy_value CODEX_WORKDIR)"
 legacy_socket_dir="$(load_legacy_value CODEX_SOCKET_DIR)"
@@ -86,3 +87,4 @@ write_env_file \
 echo "Successfully installed to $INSTALL_DIR/$SCRIPT_NAME"
 echo "Config file: $CTASK_ENV_FILE"
 echo "You can now run '$SCRIPT_NAME <task-name>' from anywhere."
+echo "Make sure $INSTALL_DIR is on PATH."

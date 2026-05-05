@@ -15,7 +15,7 @@ A generic tmux-based interactive task launcher.
 ## Installation
 
 ```bash
-sudo ./scripts/install.sh /usr/local/bin
+./scripts/install.sh
 ```
 
 This installs a single command:
@@ -23,6 +23,14 @@ This installs a single command:
 ```bash
 ctask
 ```
+
+By default, `ctask` is installed to:
+
+```text
+~/.local/bin/ctask
+```
+
+Make sure `~/.local/bin` is on your `PATH`.
 
 The installer also creates `~/.config/ctask/env.sh`. If the old
 `~/.config/codex-interactive-mode/env.sh` exists, its workdir, socket dir, and
@@ -32,7 +40,7 @@ migrated; unmatched task names intentionally open a plain tmux shell.
 To overwrite an existing config:
 
 ```bash
-sudo CTASK_OVERWRITE_CONFIG=1 ./scripts/install.sh /usr/local/bin
+CTASK_OVERWRITE_CONFIG=1 ./scripts/install.sh
 ```
 
 ## Usage
