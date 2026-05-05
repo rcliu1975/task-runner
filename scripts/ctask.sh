@@ -61,6 +61,26 @@ quote_path_dir_for_path() {
   fi
 }
 
+emit_runtime_path_setup() {
+  cat <<'EOF'
+if [[ -d "$HOME/.local/bin" ]]; then
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+if [[ -n "${NVM_BIN:-}" && -d "$NVM_BIN" ]]; then
+  export PATH="$NVM_BIN:$PATH"
+fi
+
+if [[ -d "$HOME/.nvm/versions/node" ]]; then
+  for node_bin in "$HOME"/.nvm/versions/node/*/bin; do
+    if [[ -x "$node_bin/node" ]]; then
+      export PATH="$node_bin:$PATH"
+    fi
+  done
+fi
+EOF
+}
+
 build_debug_fallback() {
   cat <<'EOF'
 status=$?
@@ -128,6 +148,7 @@ build_start_cmd() {
 
   if routed_cmd="$(route_command_from_file)"; then
     task_executable="${routed_cmd%% *}"
+    emit_runtime_path_setup
     quote_path_dir_for_path "$task_executable"
     printf 'eval %q\n' "$routed_cmd"
     build_debug_fallback
@@ -136,12 +157,14 @@ build_start_cmd() {
 
   if routed_cmd="$(route_builtin_command)"; then
     task_executable="${routed_cmd%% *}"
+    emit_runtime_path_setup
     quote_path_dir_for_path "$task_executable"
     printf 'eval %q\n' "$routed_cmd"
     build_debug_fallback
     return 0
   fi
 
+  emit_runtime_path_setup
   printf 'exec bash\n'
 }
 
