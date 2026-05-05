@@ -17,6 +17,14 @@ When you start a task, `task-runner` automatically routes it to the correct comm
 | `gemini-yolo`, `gemini-yolo-*` | `gemini --yolo` |
 | Other | Default (User defined via `CODEX_CMD`) |
 
+## Installation
+
+To install `codex-task` to your system path:
+
+```bash
+sudo ./scripts/install.sh /usr/local/bin
+```
+
 ## Usage
 
 ### Prerequisites
@@ -24,12 +32,12 @@ When you start a task, `task-runner` automatically routes it to the correct comm
 
 ### Starting a Task
 ```bash
-./scripts/codex-task.sh <task-name>
+codex-task <task-name>
 ```
 
 ### Listing Active Tasks
 ```bash
-./scripts/codex-task.sh --list
+codex-task --list
 ```
 
 ## Environment Variables
