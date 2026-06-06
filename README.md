@@ -1,49 +1,49 @@
 # ctask
 
-A generic tmux-based interactive task launcher.
+一個基於 tmux 的通用互動式任務啟動器。
 
-`ctask` directly replaces the old `codex-interactive-mode` workflow: one task name maps to one tmux socket and one tmux session. If SSH disconnects or a terminal closes, running the same task name attaches you back to the same working context.
+一個任務名稱對應一個 tmux socket 與一個 tmux session。即使 SSH 斷線或終端機關閉，只要用相同的任務名稱再次執行，即可重新接回原本的工作環境。
 
-## What It Does
+## 功能說明
 
-- Starts or reattaches a persistent tmux session for each task name.
-- Uses a configurable work directory, socket directory, and session prefix.
-- Supports route rules so task names can launch different tools.
-- Includes the original Codex/Gemini task modes by default.
-- Keeps migration compatibility with existing `task-runner` and `codex-interactive-mode` env files.
+- 為每個任務名稱建立或重新接入持久的 tmux session。
+- 工作目錄、socket 目錄、session 前綴均可自訂。
+- 支援路由規則，讓不同的任務名稱可以啟動不同的工具。
+- 預設包含原有的 Codex / Gemini 任務模式。
+- 保持對既有 `task-runner` 與 `codex-interactive-mode` env 檔案的遷移相容性。
 
-## Installation
+## 安裝（手動）
 
-```bash
-./scripts/install.sh
-```
-
-This installs a single command:
+### 1. 複製主程式
 
 ```bash
-ctask
+cp scripts/ctask.sh ~/.local/bin/ctask
+chmod 755 ~/.local/bin/ctask
 ```
 
-By default, `ctask` is installed to:
-
-```text
-~/.local/bin/ctask
-```
-
-Make sure `~/.local/bin` is on your `PATH`.
-
-The installer also creates `~/.config/ctask/env.sh`. If the old
-`~/.config/codex-interactive-mode/env.sh` exists, its workdir, socket dir, and
-session prefix are migrated into the new config. Command fallback is not
-migrated; unmatched task names intentionally open a plain tmux shell.
-
-To overwrite an existing config:
+### 2. 建立設定目錄及設定檔
 
 ```bash
-CTASK_OVERWRITE_CONFIG=1 ./scripts/install.sh
+# 建立設定目錄
+mkdir -p ~/.config/ctask
+# 建立設定檔
+cat > ~/.config/ctask/env.sh <<EOF
+export CTASK_WORKDIR="$HOME/WorkSpace"
+export CTASK_SOCKET_DIR="/tmp/ctask-tmux"
+export CTASK_SESSION_PREFIX="ctask"
+EOF
 ```
 
-## Usage
+### 3. 確認 PATH
+
+確保 `~/.local/bin` 已加入 `PATH`：
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+## 使用方式
 
 ```bash
 ctask <task-name>
@@ -51,7 +51,7 @@ ctask --list
 ctask --help
 ```
 
-Task names must use lowercase letters and `-`, for example:
+任務名稱只能使用小寫英文字母與 `-`，例如：
 
 ```bash
 ctask review
@@ -59,20 +59,20 @@ ctask long-job
 ctask danger-maintenance
 ```
 
-Built-in modes:
+內建模式：
 
-| Task Name Pattern | Command |
+| 任務名稱規則 | 執行指令 |
 | :--- | :--- |
-| `codex`, `codex-*` | `codex --full-auto` |
-| `danger`, `danger-*`, `codex-danger`, `codex-danger-*` | `codex --sandbox danger-full-access --ask-for-approval never` |
-| `gemini`, `gemini-*` | `gemini` |
-| `gemini-yolo`, `gemini-yolo-*` | `gemini --yolo` |
+| `codex`、`codex-*` | `codex --full-auto` |
+| `danger`、`danger-*`、`codex-danger`、`codex-danger-*` | `codex --sandbox danger-full-access --ask-for-approval never` |
+| `gemini`、`gemini-*` | `gemini` |
+| `gemini-yolo`、`gemini-yolo-*` | `gemini --yolo` |
 
-If no user route or built-in mode matches, `ctask` starts a plain tmux shell.
+若沒有符合的使用者路由或內建模式，`ctask` 會開啟一個普通的 tmux shell。
 
-## Configuration
+## 設定
 
-Create `~/.config/ctask/env.sh`:
+建立 `~/.config/ctask/env.sh`：
 
 ```bash
 export CTASK_WORKDIR="$HOME/WorkSpace"
@@ -80,33 +80,9 @@ export CTASK_SOCKET_DIR="/tmp/ctask-tmux"
 export CTASK_SESSION_PREFIX="ctask"
 ```
 
-You can point to another env file:
+## 路由（Routes）
 
-```bash
-CTASK_CONFIG=/path/to/env.sh ctask review
-```
-
-For migration, if `~/.config/ctask/env.sh` does not exist, `ctask` will also look for:
-
-```text
-~/.config/task-runner/env.sh
-~/.config/codex-interactive-mode/env.sh
-```
-
-These older variables still work:
-
-```bash
-TASK_RUNNER_WORKDIR
-TASK_RUNNER_SOCKET_DIR
-TASK_RUNNER_SESSION_PREFIX
-CODEX_WORKDIR
-CODEX_SOCKET_DIR
-CODEX_SESSION_PREFIX
-```
-
-## Routes
-
-Routes keep `ctask` generic while letting task names launch different tools. Create `~/.config/ctask/routes.conf`:
+路由讓 `ctask` 保持通用性，同時允許不同的任務名稱啟動不同的工具。建立 `~/.config/ctask/routes.conf`：
 
 ```conf
 build*=npm run build
@@ -114,31 +90,31 @@ test*=npm test
 deploy*=./scripts/deploy.sh
 ```
 
-Each line is:
+每一行的格式為：
 
 ```conf
-<task-name-glob>=<command>
+<任務名稱 glob>=<指令>
 ```
 
-The first matching user route wins. If no user route matches, built-in Codex/Gemini routes are checked. If no built-in route matches, the task opens an interactive shell.
+優先採用第一個符合的使用者路由；若無符合的使用者路由，再檢查內建的 Codex/Gemini 路由；若都不符合，則開啟互動式 shell。
 
-Disable built-in routes when you want every task name to come only from your route file or a plain shell:
+若要停用內建路由，讓所有任務名稱只來自你的路由檔案或普通 shell：
 
 ```bash
 export CTASK_ENABLE_BUILTIN_ROUTES=0
 ```
 
-## Environment Variables
+## 環境變數
 
-| Variable | Default |
+| 變數 | 預設值 |
 | :--- | :--- |
-| `CTASK_CONFIG` | `~/.config/ctask/env.sh`, then migration configs |
+| `CTASK_CONFIG` | `~/.config/ctask/env.sh`，接著尋找遷移設定檔 |
 | `CTASK_WORKDIR` | `$HOME/WorkSpace` |
 | `CTASK_SOCKET_DIR` | `/tmp/ctask-tmux` |
 | `CTASK_SESSION_PREFIX` | `ctask` |
 | `CTASK_ROUTES` | `~/.config/ctask/routes.conf` |
 | `CTASK_ENABLE_BUILTIN_ROUTES` | `1` |
 
-## License
+## 授權
 
 MIT
