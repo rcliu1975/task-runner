@@ -63,10 +63,10 @@ ctask danger-maintenance
 
 | 任務名稱規則 | 執行指令 |
 | :--- | :--- |
-| `codex`、`codex-*` | `codex --full-auto` |
 | `danger`、`danger-*`、`codex-danger`、`codex-danger-*` | `codex --sandbox danger-full-access --ask-for-approval never` |
-| `gemini`、`gemini-*` | `gemini` |
+| `codex`、`codex-*` | `codex --full-auto` |
 | `gemini-yolo`、`gemini-yolo-*` | `gemini --yolo` |
+| `gemini`、`gemini-*` | `gemini` |
 
 若沒有符合的使用者路由或內建模式，`ctask` 會開啟一個普通的 tmux shell。
 
