@@ -80,30 +80,6 @@ export CTASK_SOCKET_DIR="/tmp/ctask-tmux"
 export CTASK_SESSION_PREFIX="ctask"
 ```
 
-## 路由（Routes）
-
-路由讓 `ctask` 保持通用性，同時允許不同的任務名稱啟動不同的工具。建立 `~/.config/ctask/routes.conf`：
-
-```conf
-build*=npm run build
-test*=npm test
-deploy*=./scripts/deploy.sh
-```
-
-每一行的格式為：
-
-```conf
-<任務名稱 glob>=<指令>
-```
-
-優先採用第一個符合的使用者路由；若無符合的使用者路由，再檢查內建的 Codex/Gemini 路由；若都不符合，則開啟互動式 shell。
-
-若要停用內建路由，讓所有任務名稱只來自你的路由檔案或普通 shell：
-
-```bash
-export CTASK_ENABLE_BUILTIN_ROUTES=0
-```
-
 ## 環境變數
 
 | 變數 | 預設值 |
