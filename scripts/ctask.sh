@@ -1,30 +1,35 @@
 #!/usr/bin/env bash
 
+###############################################################################
+# ctask = AI Agent Session Manager
+#
+# 主要功能:
+#   - 每個 task 對應一個獨立 tmux session
+#   - 自動建立 / 重連 session
+#   - 支援 codex、gemini 內建 route
+#   - 使用獨立 tmux socket 避免互相干擾
+#
+# 範例:
+#   ctask codex
+#   ctask gemini
+#   ctask --list
+###############################################################################
+
 set -euo pipefail
 
 PROGRAM_NAME="$(basename "$0")"
-CONFIG_FILE="${CTASK_CONFIG:-${TASK_RUNNER_CONFIG:-}}"
-LEGACY_CONFIG_FILE="${CODEX_TASK_CONFIG:-$HOME/.config/codex-interactive-mode/env.sh}"
 
-if [[ -z "$CONFIG_FILE" && -f "$HOME/.config/ctask/env.sh" ]]; then
-  CONFIG_FILE="$HOME/.config/ctask/env.sh"
-elif [[ -z "$CONFIG_FILE" && -f "$HOME/.config/task-runner/env.sh" ]]; then
-  CONFIG_FILE="$HOME/.config/task-runner/env.sh"
-elif [[ -z "$CONFIG_FILE" && -f "$LEGACY_CONFIG_FILE" ]]; then
-  CONFIG_FILE="$LEGACY_CONFIG_FILE"
-fi
+CONFIG_FILE="${CTASK_CONFIG:-$HOME/.config/ctask/env.sh}"
 
-if [[ -n "$CONFIG_FILE" ]]; then
+if [[ -f "$CONFIG_FILE" ]]; then
   # shellcheck source=/dev/null
   source "$CONFIG_FILE"
 fi
 
 TASK_NAME="${1:-}"
-WORKDIR="${CTASK_WORKDIR:-${TASK_RUNNER_WORKDIR:-${CODEX_WORKDIR:-$HOME/WorkSpace}}}"
-SOCKET_DIR="${CTASK_SOCKET_DIR:-${TASK_RUNNER_SOCKET_DIR:-${CODEX_SOCKET_DIR:-/tmp/ctask-tmux}}}"
-SESSION_PREFIX="${CTASK_SESSION_PREFIX:-${TASK_RUNNER_SESSION_PREFIX:-${CODEX_SESSION_PREFIX:-ctask}}}"
-ROUTE_FILE="${CTASK_ROUTES:-${TASK_RUNNER_ROUTES:-$HOME/.config/ctask/routes.conf}}"
-ENABLE_BUILTIN_ROUTES="${CTASK_ENABLE_BUILTIN_ROUTES:-1}"
+WORKDIR="${CTASK_WORKDIR:-$HOME/WorkSpace}"
+SOCKET_DIR="${CTASK_SOCKET_DIR:-/tmp/ctask-tmux}"
+SESSION_PREFIX="${CTASK_SESSION_PREFIX:-ctask}"
 
 usage() {
   cat <<EOF
@@ -37,13 +42,6 @@ Environment:
   CTASK_WORKDIR         Working directory for the tmux session
   CTASK_SOCKET_DIR      Directory that stores per-task tmux sockets
   CTASK_SESSION_PREFIX  Prefix for tmux session names
-  CTASK_ROUTES          Optional route file with '<glob>=<command>' lines
-  CTASK_ENABLE_BUILTIN_ROUTES
-                       Enable built-in codex/gemini routes (default: 1)
-
-Compatibility:
-  TASK_RUNNER_* and CODEX_* environment variables still work for migration.
-  If no ctask config exists, legacy task-runner and codex-interactive-mode env files are loaded.
 
 Example:
   $PROGRAM_NAME codex
@@ -61,6 +59,8 @@ quote_path_dir_for_path() {
   fi
 }
 
+# 確保 tmux 啟動時也能找到常見工具
+# 例如 ~/.local/bin、nvm 安裝的 node/codex/gemini
 emit_runtime_path_setup() {
   cat <<'EOF'
 if [[ -d "$HOME/.local/bin" ]]; then
@@ -87,39 +87,19 @@ status=$?
 
 if [[ $status -ne 0 ]]; then
   printf '\nctask: startup command failed with exit status %s\n' "$status" >&2
-  printf 'ctask: CTASK_WORKDIR=%q\n' "${CTASK_WORKDIR:-${TASK_RUNNER_WORKDIR:-${CODEX_WORKDIR:-}}}" >&2
+  printf 'ctask: CTASK_WORKDIR=%q\n' "${CTASK_WORKDIR:-}" >&2
   printf 'ctask: dropping into an interactive shell for debugging.\n' >&2
   exec bash
 fi
 EOF
 }
 
-route_command_from_file() {
-  local line
-  local pattern
-  local command
-
-  [[ -f "$ROUTE_FILE" ]] || return 1
-
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ -n "$line" && "${line:0:1}" != "#" ]] || continue
-    [[ "$line" == *"="* ]] || continue
-
-    pattern="${line%%=*}"
-    command="${line#*=}"
-
-    if [[ "$TASK_NAME" == $pattern ]]; then
-      printf '%s\n' "$command"
-      return 0
-    fi
-  done < "$ROUTE_FILE"
-
-  return 1
-}
-
+# 內建 route
+# ctask codex       -> codex --full-auto
+# ctask danger      -> codex danger 模式
+# ctask gemini      -> gemini
+# ctask gemini-yolo -> gemini --yolo
 route_builtin_command() {
-  [[ "$ENABLE_BUILTIN_ROUTES" == "1" ]] || return 1
-
   case "$TASK_NAME" in
     danger|danger-*|codex-danger|codex-danger-*)
       printf 'codex --sandbox danger-full-access --ask-for-approval never\n'
@@ -142,18 +122,14 @@ route_builtin_command() {
   return 1
 }
 
+# 建立 tmux session 啟動指令
+# 流程:
+#   1. 檢查內建 route
+#   2. 找不到則直接進 bash
+# 若 AI agent 啟動失敗，會自動掉進 shell 方便除錯
 build_start_cmd() {
   local routed_cmd=""
   local task_executable=""
-
-  if routed_cmd="$(route_command_from_file)"; then
-    task_executable="${routed_cmd%% *}"
-    emit_runtime_path_setup
-    quote_path_dir_for_path "$task_executable"
-    printf 'eval %q\n' "$routed_cmd"
-    build_debug_fallback
-    return 0
-  fi
 
   if routed_cmd="$(route_builtin_command)"; then
     task_executable="${routed_cmd%% *}"
@@ -168,6 +144,7 @@ build_start_cmd() {
   printf 'exec bash\n'
 }
 
+# 檢查指定 tmux session 是否存在
 session_exists() {
   local socket_path="$1"
   local session_name="$2"
@@ -175,6 +152,9 @@ session_exists() {
   tmux -S "$socket_path" has-session -t "$session_name" 2>/dev/null
 }
 
+# 列出所有 task socket
+# active = session 存在
+# stale  = socket 存在但 tmux session 已消失
 list_tasks() {
   local socket_path
   local task_name
@@ -236,20 +216,28 @@ if [[ ! -d "$WORKDIR" ]]; then
   exit 1
 fi
 
+# 建立 socket 目錄
 mkdir -p "$SOCKET_DIR"
 chmod 700 "$SOCKET_DIR"
 
 SOCKET_PATH="$SOCKET_DIR/${TASK_NAME}.sock"
 SESSION_NAME="${SESSION_PREFIX}-${TASK_NAME}"
 
+# 清理殘留 socket
+# 例如 tmux 被強制 kill 後留下的 orphan socket
 if [[ -S "$SOCKET_PATH" ]] && ! session_exists "$SOCKET_PATH" "$SESSION_NAME"; then
   rm -f "$SOCKET_PATH"
 fi
 
+# 如果 session 不存在:
+#   建立新的 tmux session
+#   執行對應 AI agent 啟動命令
 if ! session_exists "$SOCKET_PATH" "$SESSION_NAME"; then
   START_CMD="$(build_start_cmd)"
 
   tmux -S "$SOCKET_PATH" new-session -d -s "$SESSION_NAME" -c "$WORKDIR" bash -lc "$START_CMD"
 fi
 
+# 不論是新建或已存在
+# 最後都 attach 回同一個 session
 exec tmux -S "$SOCKET_PATH" attach -t "$SESSION_NAME"
