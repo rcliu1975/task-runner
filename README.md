@@ -14,6 +14,12 @@
 
 ## 安裝（手動）
 
+### 0. 安裝 codex
+
+```bash
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+```
+
 ### 1. 複製主程式
 
 ```bash
