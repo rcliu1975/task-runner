@@ -42,8 +42,12 @@ EOF
 
 ### 3. 確認 PATH
 
-確保 `~/.local/bin` 已加入 `PATH`：
+檢查 `~/.local/bin` 是否已加入 `PATH`：
+```bash
+echo $PATH
+```
 
+若否，則加入：
 ```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
